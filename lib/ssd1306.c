@@ -1,5 +1,16 @@
 #include "ssd1306.h"
 
+uint8_t initData[] = { 	SET_DISPLAY_OFF, \
+												Addressing_MODE, Horizontal_ADDRESSING, \
+												SET_Display_Start_Line, \
+												SET_CONTRAST,0xFF, \
+												NORMAL_DISPLAY, \
+												SET_MUX_Ratio,SSD1306_HEIGHT - 1, \
+												SET_COM_Scan_Direction, \
+												SET_Segment_Remap, \
+												Charge_Pump_MODE,CP_ON, \
+												ALLOW_RAM_CONTENT,SET_DISPLAY_ON};
+
 
 // Screenbuffer
 static uint8_t SSD1306_Buffer[SSD1306_WIDTH * SSD1306_HEIGHT / 8];
@@ -13,7 +24,21 @@ static SSD1306_t SSD1306;
 //
 static uint8_t ssd1306_WriteCommand(I2C_HandleTypeDef *hi2c, uint8_t command)
 {
-    return HAL_I2C_Mem_Write(hi2c, SSD1306_I2C_ADDR, 0x00, 1, &command, 1, 10);
+	uint8_t answer = ACK_RECEIVED;
+		if (hi2c != NULL)
+				answer =  HAL_I2C_Mem_Write(hi2c, SSD1306_I2C_ADDR, WriteCOMMAND, 1, &command, 1, 10);
+		else{
+			START_CONDITION();	
+				if(i2c_sendByte(SSD1306_I2C_ADDR) == NACK_RECEIVED)
+					{answer  = NACK_RECEIVED;return answer;}
+				if(i2c_sendByte(WriteCOMMAND) == NACK_RECEIVED)
+					{answer  = NACK_RECEIVED;return answer;}
+				if(i2c_sendByte(command) == NACK_RECEIVED)
+					{answer  = NACK_RECEIVED;return answer;}
+			STOP_CONDITION();
+										
+		}
+		return answer;
 }
 
 
@@ -24,48 +49,22 @@ uint8_t ssd1306_Init(I2C_HandleTypeDef *hi2c)
 {
     // Wait for the screen to boot
     HAL_Delay(100);
-    int status = 0;
+    bool status = 0;
 
+		if(hi2c == NULL){
+			I2C_SW_Init();		
+		}
+	
     // Init LCD
-    status += ssd1306_WriteCommand(hi2c, 0xAE);   // Display off
-    status += ssd1306_WriteCommand(hi2c, 0x20);   // Set Memory Addressing Mode
-    status += ssd1306_WriteCommand(hi2c, 0x10);   // 00,Horizontal Addressing Mode;01,Vertical Addressing Mode;10,Page Addressing Mode (RESET);11,Invalid
-    status += ssd1306_WriteCommand(hi2c, 0xB0);   // Set Page Start Address for Page Addressing Mode,0-7
-    status += ssd1306_WriteCommand(hi2c, 0xC8);   // Set COM Output Scan Direction
-    status += ssd1306_WriteCommand(hi2c, 0x00);   // Set low column address
-    status += ssd1306_WriteCommand(hi2c, 0x10);   // Set high column address
-    status += ssd1306_WriteCommand(hi2c, 0x40);   // Set start line address
-    status += ssd1306_WriteCommand(hi2c, 0x81);   // set contrast control register
-    status += ssd1306_WriteCommand(hi2c, 0xFF);
-    status += ssd1306_WriteCommand(hi2c, 0xA1);   // Set segment re-map 0 to 127
-    status += ssd1306_WriteCommand(hi2c, 0xA6);   // Set normal display
+		for(uint16_t i = 0;i<sizeof(initData);i++){
+			if (ssd1306_WriteCommand(hi2c,initData[i])== NACK_RECEIVED){
+				status = NACK_RECEIVED;
+				break;
+			}
+		}
 
-    status += ssd1306_WriteCommand(hi2c, 0xA8);   // Set multiplex ratio(1 to 64)
-    status += ssd1306_WriteCommand(hi2c, SSD1306_HEIGHT - 1);
-
-    status += ssd1306_WriteCommand(hi2c, 0xA4);   // 0xa4,Output follows RAM content;0xa5,Output ignores RAM content
-    status += ssd1306_WriteCommand(hi2c, 0xD3);   // Set display offset
-    status += ssd1306_WriteCommand(hi2c, 0x00);   // No offset
-    status += ssd1306_WriteCommand(hi2c, 0xD5);   // Set display clock divide ratio/oscillator frequency
-    status += ssd1306_WriteCommand(hi2c, 0xF0);   // Set divide ratio
-    status += ssd1306_WriteCommand(hi2c, 0xD9);   // Set pre-charge period
-    status += ssd1306_WriteCommand(hi2c, 0x22);
-
-    status += ssd1306_WriteCommand(hi2c, 0xDA);   // Set com pins hardware configuration
-#ifdef SSD1306_COM_LR_REMAP
-    status += ssd1306_WriteCommand(hi2c, 0x32);   // Enable COM left/right remap
-#else
-    status += ssd1306_WriteCommand(hi2c, 0x12);   // Do not use COM left/right remap
-#endif // SSD1306_COM_LR_REMAP
-
-    status += ssd1306_WriteCommand(hi2c, 0xDB);   // Set vcomh
-    status += ssd1306_WriteCommand(hi2c, 0x20);   // 0x20,0.77xVcc
-    status += ssd1306_WriteCommand(hi2c, 0x8D);   // Set DC-DC enable
-    status += ssd1306_WriteCommand(hi2c, 0x14);   //
-    status += ssd1306_WriteCommand(hi2c, 0xAF);   // Turn on SSD1306 panel
-
-    if (status != 0) {
-        return 1;
+    if (status != ACK_RECEIVED) {
+        return NACK_RECEIVED;
     }
 
     // Clear screen
@@ -100,17 +99,38 @@ void ssd1306_Fill(SSD1306_COLOR color)
 //
 //  Write the screenbuffer with changed to the screen
 //
-void ssd1306_UpdateScreen(I2C_HandleTypeDef *hi2c)
+bool ssd1306_UpdateScreen(I2C_HandleTypeDef *hi2c)
 {
-    uint8_t i;
-
-    for (i = 0; i < 8; i++) {
-        ssd1306_WriteCommand(hi2c, 0xB0 + i);
-        ssd1306_WriteCommand(hi2c, 0x00);
-        ssd1306_WriteCommand(hi2c, 0x10);
-
-        HAL_I2C_Mem_Write(hi2c, SSD1306_I2C_ADDR, 0x40, 1, &SSD1306_Buffer[SSD1306_WIDTH * i], SSD1306_WIDTH, 100);
-    }
+    bool status = ACK_RECEIVED;
+		
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,SETUP_COLUMN_ADDRESS) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}				
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,0) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,SSD1306_WIDTH-1) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,SETUP_PAGE_ADDRESS) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}				
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,0) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,(SSD1306_HEIGHT/8)-1) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		
+		if (hi2c != NULL)
+			status = HAL_I2C_Mem_Write(hi2c, SSD1306_I2C_ADDR, WriteDATA, 1, &SSD1306_Buffer[0], sizeof(SSD1306_Buffer), 100);			
+		else{
+			START_CONDITION();
+				if((status==ACK_RECEIVED)&&(i2c_sendByte(SSD1306_I2C_ADDR)== NACK_RECEIVED))
+				{status  = NACK_RECEIVED;return status;}
+				if((status==ACK_RECEIVED)&&(i2c_sendByte(WriteDATA)== NACK_RECEIVED))
+				{status  = NACK_RECEIVED;return status;}
+				if((status==ACK_RECEIVED)&&(i2c_sendBuffer(&SSD1306_Buffer[0],sizeof(SSD1306_Buffer))== NACK_RECEIVED))
+				{status  = NACK_RECEIVED;return status;}
+			STOP_CONDITION();			
+		}
+		
+		return status;
 }
 
 //
