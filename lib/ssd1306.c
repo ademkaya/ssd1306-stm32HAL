@@ -132,6 +132,47 @@ bool ssd1306_UpdateScreen(I2C_HandleTypeDef *hi2c)
 		
 		return status;
 }
+/**
+	x1,x2 >  0 to  SSD1306_WIDTH 		- 1
+	y1-y2 >  0 to  SSD1306_HEIGTH/8 - 1
+*/
+bool ssd1306_UpdateRegion(I2C_HandleTypeDef *hi2c,uint8_t x1,uint8_t x2,uint8_t y1,uint8_t y2)
+{
+    bool status = ACK_RECEIVED;
+		uint16_t 	size 	 = 0;
+		uint16_t 	pStart = 0;
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,SETUP_COLUMN_ADDRESS) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}				
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,x1) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,x2) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,SETUP_PAGE_ADDRESS) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}				
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,y1) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		if((status==ACK_RECEIVED)&&(ssd1306_WriteCommand(hi2c,y2) == NACK_RECEIVED))
+		{status  = NACK_RECEIVED;return status;}
+		
+		size = (y2-y1+1)*(x2-x1+1);
+		pStart = SSD1306_WIDTH*y1+x1;
+		
+		if (hi2c != NULL)
+				status = HAL_I2C_Mem_Write(hi2c, SSD1306_I2C_ADDR, WriteDATA, 1, &SSD1306_Buffer[pStart], size, 100);			
+		else{
+			START_CONDITION();
+				if((status==ACK_RECEIVED)&&(i2c_sendByte(SSD1306_I2C_ADDR)== NACK_RECEIVED))
+				{status  = NACK_RECEIVED;return status;}
+				if((status==ACK_RECEIVED)&&(i2c_sendByte(WriteDATA)== NACK_RECEIVED))
+				{status  = NACK_RECEIVED;return status;}
+				if((status==ACK_RECEIVED)&&(i2c_sendBuffer(&SSD1306_Buffer[pStart],size)== NACK_RECEIVED))
+				{status  = NACK_RECEIVED;return status;}
+			STOP_CONDITION();			
+		}
+		
+		return status;
+}
 
 //
 //  Draw one pixel in the screenbuffer
