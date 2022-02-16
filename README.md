@@ -24,7 +24,6 @@ I2C_HandleTypeDef hi2c1;
 
 // Init lcd using one of the stm32HAL i2c typedefs
 ssd1306_Init(&hi2c1);
-
 // Write data to local screenbuffer
 ssd1306_SetCursor(0, 36);
 ssd1306_WriteString("4ilo", Font_11x18, White);
@@ -32,6 +31,17 @@ ssd1306_WriteString("4ilo", Font_11x18, White);
 // Copy all data from local screenbuffer to the screen
 ssd1306_UpdateScreen(&hi2c1);
 
+/* - SOFTWARE I2C SUPPORT..
+
+        ssd1306_Init(NULL);
+        // Write data to local screenbuffer
+        ssd1306_SetCursor(0, 36);
+        ssd1306_WriteString("4ilo", Font_11x18, White);
+
+        // Copy all data from local screenbuffer to the screen
+        ssd1306_UpdateScreen(NULL);
+
+*/
 ```
 
 ### 128x32 example
