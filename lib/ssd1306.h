@@ -90,7 +90,7 @@
 
 
 
-
+extern uint8_t SSD1306_Buffer[SSD1306_WIDTH * SSD1306_HEIGHT / 8];
 
 //
 //  Enumeration for screen colors
@@ -110,13 +110,16 @@ typedef struct {
     uint8_t Initialized;
 } SSD1306_t;
 
+
+
+
+
+
 //
 //  Function definitions
 //
 
 uint8_t  ssd1306_Init(I2C_HandleTypeDef *hi2c);
-
-uint8_t* staticArrayPtr(void);
 bool 		 ssd1306_UpdateScreen(I2C_HandleTypeDef *hi2c);
 bool 		 ssd1306_UpdateRegion(I2C_HandleTypeDef *hi2c,uint8_t x1,uint8_t x2,uint8_t y1,uint8_t y2);
 
