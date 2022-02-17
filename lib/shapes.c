@@ -53,6 +53,8 @@ void DrawCircle(uint8_t* ptr,uint8_t x0,uint8_t y0,uint8_t radius, SSD1306_COLOR
 
 void DrawLine(uint8_t* ptr,uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,SSD1306_COLOR color) {
  
+	//https://rosettacode.org/wiki/Bitmap/Bresenham%27s_line_algorithm#C
+	
   int8_t dx = (unsigned)(x1-x0), sx = x0<x1 ? 1 : -1;
   int8_t dy = (unsigned)(y1-y0), sy = y0<y1 ? 1 : -1; 
   int8_t err = (dx>dy ? dx : -dy)/2, e2;
